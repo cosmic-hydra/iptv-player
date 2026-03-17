@@ -38,12 +38,14 @@ export default function VideoPlayer({ url, channelName }: VideoPlayerProps) {
   const [state, dispatch] = useReducer(reducer, { status: "idle" });
   const retryCountRef = useRef(0);
   const [retryAttempt, setRetryAttempt] = useState(0);
+  const [loadingProgress, setLoadingProgress] = useState(0);
 
   useEffect(() => {
     if (!url || !videoRef.current) return;
 
     dispatch({ type: "LOAD" });
     retryCountRef.current = 0;
+    setLoadingProgress(0);
 
     // Destroy any existing HLS instance
     if (hlsRef.current) {
@@ -81,12 +83,25 @@ export default function VideoPlayer({ url, channelName }: VideoPlayerProps) {
       hls.loadSource(url);
       hls.attachMedia(video);
 
+      hls.on(Hls.Events.MANIFEST_LOADING, () => {
+        setLoadingProgress(10);
+      });
+
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        setLoadingProgress(50);
         dispatch({ type: "READY" });
         video.play().catch(() => {
           // Autoplay may be blocked; user can click play manually
         });
       });
+
+      hls.on(Hls.Events.FRAG_LOADED, () => {
+        setLoadingProgress(75);
+      });
+
+      video.addEventListener("loadeddata", () => {
+        setLoadingProgress(100);
+      }, { once: true });
 
       hls.on(Hls.Events.ERROR, (_event, data) => {
         console.error("HLS Error:", data);
@@ -192,8 +207,15 @@ export default function VideoPlayer({ url, channelName }: VideoPlayerProps) {
       )}
 
       {state.status === "loading" && (
-        <div className="absolute inset-0 flex items-center justify-center z-10">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500" />
+        <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-black/50 backdrop-blur-sm">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4" />
+          <p className="text-white text-sm mb-2">Loading stream...</p>
+          <div className="w-48 h-1 bg-gray-700 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-blue-500 transition-all duration-300 ease-out"
+              style={{ width: `${loadingProgress}%` }}
+            />
+          </div>
         </div>
       )}
 
