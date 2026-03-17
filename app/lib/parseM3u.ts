@@ -8,6 +8,15 @@ export interface Channel {
   country: string;
 }
 
+function isValidUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export function parseM3U(content: string): Channel[] {
   const channels: Channel[] = [];
   const lines = content.split("\n");
@@ -32,21 +41,27 @@ export function parseM3U(content: string): Channel[] {
       current.country = extractAttr(attrStr, "tvg-country") ?? "";
       current.id = extractAttr(attrStr, "tvg-id") ?? `channel-${index}`;
     } else if (line && !line.startsWith("#") && current) {
-      current.url = line;
-      channels.push({
-        id: current.id || `channel-${index}`,
-        name: current.name || "Unknown",
-        url: current.url,
-        logo: current.logo || "",
-        group: current.group || "Other",
-        language: current.language || "",
-        country: current.country || "",
-      });
-      index++;
+      // Validate URL before adding
+      if (isValidUrl(line)) {
+        current.url = line;
+        channels.push({
+          id: current.id || `channel-${index}`,
+          name: current.name || "Unknown",
+          url: current.url,
+          logo: current.logo || "",
+          group: current.group || "Other",
+          language: current.language || "",
+          country: current.country || "",
+        });
+        index++;
+      } else {
+        console.warn(`Skipping invalid URL for channel ${current.name}: ${line}`);
+      }
       current = null;
     }
   }
 
+  console.log(`Parsed ${channels.length} valid channels`);
   return channels;
 }
 

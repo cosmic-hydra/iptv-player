@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useReducer, useRef } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import Hls from "hls.js";
 
 interface VideoPlayerProps {
@@ -36,11 +36,14 @@ export default function VideoPlayer({ url, channelName }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const [state, dispatch] = useReducer(reducer, { status: "idle" });
+  const retryCountRef = useRef(0);
+  const [retryAttempt, setRetryAttempt] = useState(0);
 
   useEffect(() => {
     if (!url || !videoRef.current) return;
 
     dispatch({ type: "LOAD" });
+    retryCountRef.current = 0;
 
     // Destroy any existing HLS instance
     if (hlsRef.current) {
@@ -55,6 +58,20 @@ export default function VideoPlayer({ url, channelName }: VideoPlayerProps) {
         enableWorker: true,
         lowLatencyMode: false,
         backBufferLength: 90,
+        maxBufferLength: 30,
+        maxMaxBufferLength: 60,
+        // Enable more robust error recovery
+        maxLoadingDelay: 4,
+        maxBufferHole: 0.5,
+        highBufferWatchdogPeriod: 2,
+        // Network retry settings
+        manifestLoadingTimeOut: 10000,
+        manifestLoadingMaxRetry: 4,
+        manifestLoadingRetryDelay: 1000,
+        levelLoadingTimeOut: 10000,
+        levelLoadingMaxRetry: 4,
+        fragLoadingTimeOut: 20000,
+        fragLoadingMaxRetry: 6,
       });
       hlsRef.current = hls;
 
@@ -69,14 +86,43 @@ export default function VideoPlayer({ url, channelName }: VideoPlayerProps) {
       });
 
       hls.on(Hls.Events.ERROR, (_event, data) => {
+        console.error("HLS Error:", data);
+
         if (data.fatal) {
-          let message = "An error occurred while loading the stream.";
-          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-            message = "Network error: unable to load stream. The channel may be offline.";
-          } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-            message = "Media error: unsupported format or corrupted stream.";
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              console.warn("Network error encountered, attempting recovery...");
+              if (retryCountRef.current < 3) {
+                retryCountRef.current++;
+                setTimeout(() => {
+                  console.log(`Retry attempt ${retryCountRef.current}/3`);
+                  hls.startLoad();
+                }, 1000 * retryCountRef.current);
+              } else {
+                dispatch({
+                  type: "ERROR",
+                  message: "Network error: unable to load stream. The channel may be offline or blocked.",
+                });
+              }
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              console.warn("Media error encountered, attempting recovery...");
+              if (retryCountRef.current < 2) {
+                retryCountRef.current++;
+                hls.recoverMediaError();
+              } else {
+                dispatch({
+                  type: "ERROR",
+                  message: "Media error: unsupported format or corrupted stream.",
+                });
+              }
+              break;
+            default:
+              dispatch({
+                type: "ERROR",
+                message: "An error occurred while loading the stream.",
+              });
           }
-          dispatch({ type: "ERROR", message });
         }
       });
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
@@ -107,7 +153,11 @@ export default function VideoPlayer({ url, channelName }: VideoPlayerProps) {
         hlsRef.current = null;
       }
     };
-  }, [url]);
+  }, [url, retryAttempt]);
+
+  const handleRetry = () => {
+    setRetryAttempt((prev) => prev + 1);
+  };
 
   if (!url) {
     return (
@@ -160,7 +210,13 @@ export default function VideoPlayer({ url, channelName }: VideoPlayerProps) {
             />
           </svg>
           <p className="text-red-400 font-medium mb-1">Stream Unavailable</p>
-          <p className="text-gray-400 text-sm">{state.message}</p>
+          <p className="text-gray-400 text-sm mb-4">{state.message}</p>
+          <button
+            onClick={handleRetry}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          >
+            Retry
+          </button>
         </div>
       )}
 
