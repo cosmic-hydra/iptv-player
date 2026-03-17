@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import type { Channel } from "@/app/lib/parseM3u";
+import QuickAccess from "@/app/components/QuickAccess";
+import VirtualChannelList from "@/app/components/VirtualChannelList";
 
 interface ChannelListProps {
   channels: Channel[];
@@ -100,7 +102,13 @@ export default function ChannelList({
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-hidden flex flex-col">
+        {!loading && !error && channels.length > 0 && (
+          <div className="p-3 border-b border-gray-800">
+            <QuickAccess channels={channels} onSelect={onSelect} />
+          </div>
+        )}
+
         {loading && (
           <div className="flex flex-col items-center justify-center h-40 text-gray-400 gap-3">
             <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500" />
@@ -121,44 +129,13 @@ export default function ChannelList({
           </div>
         )}
 
-        {!loading &&
-          !error &&
-          filtered.map((channel, index) => (
-            <button
-              key={`${channel.id}-${index}`}
-              onClick={() => onSelect(channel)}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-700 border-b border-gray-800 ${
-                selectedChannel?.url === channel.url
-                  ? "bg-blue-600/20 border-l-2 border-l-blue-500"
-                  : ""
-              }`}
-            >
-              {channel.logo ? (
-                <div className="w-10 h-7 flex-shrink-0 bg-gray-800 rounded overflow-hidden flex items-center justify-center">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={channel.logo}
-                    alt={channel.name}
-                    className="w-full h-full object-contain"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none";
-                    }}
-                  />
-                </div>
-              ) : (
-                <div className="w-10 h-7 flex-shrink-0 bg-gray-700 rounded flex items-center justify-center">
-                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="text-white text-sm font-medium truncate">{channel.name}</p>
-                <p className="text-gray-400 text-xs truncate">{channel.group}</p>
-              </div>
-            </button>
-          ))}
+        {!loading && !error && filtered.length > 0 && (
+          <VirtualChannelList
+            channels={filtered}
+            selectedChannel={selectedChannel}
+            onSelect={onSelect}
+          />
+        )}
       </div>
     </div>
   );

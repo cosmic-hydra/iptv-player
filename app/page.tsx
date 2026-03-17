@@ -4,12 +4,18 @@ import { useEffect, useState } from "react";
 import type { Channel } from "@/app/lib/parseM3u";
 import ChannelList from "@/app/components/ChannelList";
 import VideoPlayer from "@/app/components/VideoPlayer";
+import { addRecentChannel } from "@/app/lib/storage";
 
 export default function Home() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
+
+  const handleSelectChannel = (channel: Channel) => {
+    setSelectedChannel(channel);
+    addRecentChannel(channel);
+  };
 
   useEffect(() => {
     fetch("/api/channels")
@@ -51,7 +57,7 @@ export default function Home() {
           <ChannelList
             channels={channels}
             selectedChannel={selectedChannel}
-            onSelect={setSelectedChannel}
+            onSelect={handleSelectChannel}
             loading={loading}
             error={error}
           />
