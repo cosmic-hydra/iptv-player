@@ -21,13 +21,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Add timeout for better performance
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
     const response = await fetch(url, {
       headers: {
-        "User-Agent": "iptv-player/1.0",
+        "User-Agent": "iptv-player/2.0",
         "Accept": "*/*",
+        "Connection": "keep-alive",
         "Range": request.headers.get("Range") || "",
       },
+      signal: controller.signal,
+      cache: "no-store", // Don't cache proxied streams
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       return NextResponse.json(
@@ -45,6 +54,7 @@ export async function GET(request: NextRequest) {
     responseHeaders.set("Access-Control-Allow-Origin", "*");
     responseHeaders.set("Access-Control-Allow-Methods", "GET, OPTIONS");
     responseHeaders.set("Access-Control-Allow-Headers", "Range");
+    responseHeaders.set("Cache-Control", "no-cache, no-store, must-revalidate");
 
     // Copy relevant headers from the original response
     if (response.headers.get("Content-Length")) {
@@ -62,6 +72,13 @@ export async function GET(request: NextRequest) {
       headers: responseHeaders,
     });
   } catch (err) {
+    if ((err as Error).name === 'AbortError') {
+      console.error("Proxy timeout:", url);
+      return NextResponse.json(
+        { error: "Request timeout" },
+        { status: 504 }
+      );
+    }
     console.error("Proxy error:", err);
     return NextResponse.json(
       { error: "Failed to proxy request" },
