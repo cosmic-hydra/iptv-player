@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Channel } from "@/app/lib/parseM3u";
+import QuickAccess from "@/app/components/QuickAccess";
 
 interface ChannelListProps {
   channels: Channel[];
@@ -101,6 +102,12 @@ export default function ChannelList({
 
       {/* List */}
       <div className="flex-1 overflow-y-auto">
+        {!loading && !error && channels.length > 0 && (
+          <div className="p-3 border-b border-gray-800">
+            <QuickAccess channels={channels} onSelect={onSelect} />
+          </div>
+        )}
+
         {loading && (
           <div className="flex flex-col items-center justify-center h-40 text-gray-400 gap-3">
             <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500" />

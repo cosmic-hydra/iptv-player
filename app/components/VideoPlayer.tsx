@@ -57,20 +57,23 @@ export default function VideoPlayer({ url, channelName }: VideoPlayerProps) {
       const hls = new Hls({
         enableWorker: true,
         lowLatencyMode: false,
+        // Optimized for faster initial playback
         backBufferLength: 90,
-        maxBufferLength: 30,
-        maxMaxBufferLength: 60,
-        // Enable more robust error recovery
-        maxLoadingDelay: 4,
+        maxBufferLength: 10,        // Reduced from 30 to 10 for faster start
+        maxMaxBufferLength: 30,     // Reduced from 60 to 30
+        maxLoadingDelay: 2,          // Reduced from 4 to 2 for quicker loading
         maxBufferHole: 0.5,
         highBufferWatchdogPeriod: 2,
-        // Network retry settings
-        manifestLoadingTimeOut: 10000,
+        // Faster initial fragment loading
+        startFragPrefetch: true,     // Enable fragment prefetching
+        testBandwidth: false,        // Skip bandwidth test for faster start
+        // Network retry settings - optimized for speed
+        manifestLoadingTimeOut: 8000,      // Reduced from 10000 to 8000
         manifestLoadingMaxRetry: 4,
-        manifestLoadingRetryDelay: 1000,
-        levelLoadingTimeOut: 10000,
+        manifestLoadingRetryDelay: 500,    // Reduced from 1000 to 500
+        levelLoadingTimeOut: 8000,         // Reduced from 10000 to 8000
         levelLoadingMaxRetry: 4,
-        fragLoadingTimeOut: 20000,
+        fragLoadingTimeOut: 15000,         // Reduced from 20000 to 15000
         fragLoadingMaxRetry: 6,
       });
       hlsRef.current = hls;
