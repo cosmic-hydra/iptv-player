@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Channel } from "@/app/lib/parseM3u";
 import { getRecentChannels } from "@/app/lib/storage";
 
@@ -10,11 +10,7 @@ interface QuickAccessProps {
 }
 
 export default function QuickAccess({ channels, onSelect }: QuickAccessProps) {
-  const [recentChannels, setRecentChannels] = useState<Channel[]>([]);
-
-  useEffect(() => {
-    setRecentChannels(getRecentChannels());
-  }, []);
+  const [recentChannels] = useState<Channel[]>(() => getRecentChannels());
 
   // If we have recent channels, use them
   if (recentChannels.length > 0) {

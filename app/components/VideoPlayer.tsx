@@ -45,7 +45,6 @@ export default function VideoPlayer({ url, channelName }: VideoPlayerProps) {
 
     dispatch({ type: "LOAD" });
     retryCountRef.current = 0;
-    setLoadingProgress(0);
 
     // Destroy any existing HLS instance
     if (hlsRef.current) {
@@ -54,6 +53,13 @@ export default function VideoPlayer({ url, channelName }: VideoPlayerProps) {
     }
 
     const video = videoRef.current;
+
+    // Reset loading progress
+    const updateProgress = (value: number) => {
+      setLoadingProgress(value);
+    };
+
+    updateProgress(0);
 
     if (Hls.isSupported()) {
       const hls = new Hls({
@@ -84,11 +90,11 @@ export default function VideoPlayer({ url, channelName }: VideoPlayerProps) {
       hls.attachMedia(video);
 
       hls.on(Hls.Events.MANIFEST_LOADING, () => {
-        setLoadingProgress(10);
+        updateProgress(10);
       });
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        setLoadingProgress(50);
+        updateProgress(50);
         dispatch({ type: "READY" });
         video.play().catch(() => {
           // Autoplay may be blocked; user can click play manually
@@ -96,11 +102,11 @@ export default function VideoPlayer({ url, channelName }: VideoPlayerProps) {
       });
 
       hls.on(Hls.Events.FRAG_LOADED, () => {
-        setLoadingProgress(75);
+        updateProgress(75);
       });
 
       video.addEventListener("loadeddata", () => {
-        setLoadingProgress(100);
+        updateProgress(100);
       }, { once: true });
 
       hls.on(Hls.Events.ERROR, (_event, data) => {
