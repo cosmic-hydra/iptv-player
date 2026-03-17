@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Channel } from "@/app/lib/parseM3u";
 import ChannelList from "@/app/components/ChannelList";
 import VideoPlayer from "@/app/components/VideoPlayer";
+import PerformanceOptimizer from "@/app/components/PerformanceOptimizer";
 import { addRecentChannel } from "@/app/lib/storage";
 
 export default function Home() {
@@ -18,7 +19,14 @@ export default function Home() {
   };
 
   useEffect(() => {
-    fetch("/api/channels")
+    // Use AbortController for cleanup
+    const controller = new AbortController();
+
+    fetch("/api/channels", {
+      signal: controller.signal,
+      // Use browser cache if available
+      cache: "force-cache",
+    })
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
@@ -27,15 +35,22 @@ export default function Home() {
         setChannels(data.channels ?? []);
       })
       .catch((err) => {
-        setError(err.message ?? "Failed to load channels");
+        if (err.name !== 'AbortError') {
+          setError(err.message ?? "Failed to load channels");
+        }
       })
       .finally(() => {
         setLoading(false);
       });
+
+    return () => {
+      controller.abort();
+    };
   }, []);
 
   return (
     <main className="flex flex-col h-screen bg-gray-950 text-white">
+      <PerformanceOptimizer />
       {/* Top bar */}
       <header className="flex items-center gap-3 px-6 py-3 bg-gray-900 border-b border-gray-800 flex-shrink-0">
         <svg className="w-7 h-7 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

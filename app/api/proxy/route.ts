@@ -33,7 +33,6 @@ export async function GET(request: NextRequest) {
         "Range": request.headers.get("Range") || "",
       },
       signal: controller.signal,
-      // @ts-ignore - Next.js specific option
       cache: "no-store", // Don't cache proxied streams
     });
 

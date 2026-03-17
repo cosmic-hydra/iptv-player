@@ -39,12 +39,15 @@ export default function VideoPlayer({ url, channelName }: VideoPlayerProps) {
   const retryCountRef = useRef(0);
   const [retryAttempt, setRetryAttempt] = useState(0);
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [quality, setQuality] = useState<string>("auto");
+  const startTimeRef = useRef<number>(0);
 
   useEffect(() => {
     if (!url || !videoRef.current) return;
 
     dispatch({ type: "LOAD" });
     retryCountRef.current = 0;
+    startTimeRef.current = Date.now();
 
     // Destroy any existing HLS instance
     if (hlsRef.current) {
@@ -90,8 +93,12 @@ export default function VideoPlayer({ url, channelName }: VideoPlayerProps) {
         maxFragLookUpTolerance: 0.2,       // Faster fragment lookup
         liveSyncDurationCount: 2,          // Minimum live edge sync
         liveMaxLatencyDurationCount: 3,    // Maximum latency for live streams
+        // Adaptive streaming for bandwidth
+        abrEwmaDefaultEstimate: 500000,    // Start with 500kbps estimate
+        abrBandWidthFactor: 0.95,          // Aggressive bandwidth utilization
+        abrBandWidthUpFactor: 0.7,         // Quick quality upgrades
         // Connection optimizations
-        xhrSetup: (xhr: XMLHttpRequest, url: string) => {
+        xhrSetup: (xhr: XMLHttpRequest) => {
           xhr.timeout = 10000;             // 10s timeout for all requests
           // Add headers to bypass some blocking
           xhr.setRequestHeader('User-Agent', 'iptv-player/2.0');
@@ -110,6 +117,11 @@ export default function VideoPlayer({ url, channelName }: VideoPlayerProps) {
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         updateProgress(50);
         dispatch({ type: "READY" });
+
+        // Track loading performance
+        const loadTime = Date.now() - startTimeRef.current;
+        console.log(`Stream loaded in ${loadTime}ms for ${channelName}`);
+
         video.play().catch(() => {
           // Autoplay may be blocked; user can click play manually
         });
@@ -117,6 +129,16 @@ export default function VideoPlayer({ url, channelName }: VideoPlayerProps) {
 
       hls.on(Hls.Events.FRAG_LOADED, () => {
         updateProgress(75);
+      });
+
+      // Monitor bandwidth and quality changes
+      hls.on(Hls.Events.LEVEL_SWITCHED, (_event, data) => {
+        const level = hls.levels[data.level];
+        if (level) {
+          const qualityLabel = `${level.height}p` || `${Math.round(level.bitrate / 1000)}kbps`;
+          setQuality(qualityLabel);
+          console.log(`Quality switched to: ${qualityLabel}`);
+        }
       });
 
       video.addEventListener("loadeddata", () => {
@@ -191,7 +213,7 @@ export default function VideoPlayer({ url, channelName }: VideoPlayerProps) {
         hlsRef.current = null;
       }
     };
-  }, [url, retryAttempt]);
+  }, [url, retryAttempt, channelName]);
 
   const handleRetry = () => {
     setRetryAttempt((prev) => prev + 1);
@@ -223,6 +245,12 @@ export default function VideoPlayer({ url, channelName }: VideoPlayerProps) {
       {channelName && (
         <div className="absolute top-3 left-3 z-10 bg-black/60 text-white text-sm px-3 py-1 rounded-full backdrop-blur-sm">
           {channelName}
+        </div>
+      )}
+
+      {quality !== "auto" && state.status === "ready" && (
+        <div className="absolute top-3 right-3 z-10 bg-black/60 text-white text-xs px-2 py-1 rounded-full backdrop-blur-sm">
+          {quality}
         </div>
       )}
 
